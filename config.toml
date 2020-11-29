@@ -1,0 +1,40 @@
+[Notification]
+Title = "Update notifier"
+DescriptionHeader = "Updates are available from the following sources:"
+LineFormat = "* %s"
+ActionName = "Update"
+
+[[Source]]
+Name = "Pacman repositories"
+CheckUpdatesCommand = "checkupdates"
+UpdateCommand = "yay --repo -Syu --noconfirm"
+
+[[Source]]
+Name = "AUR"
+CheckUpdatesCommand = "checkaurupdates"
+UpdateCommand = "yay -a -Syu --noconfirm"
+
+[[Source]]
+Name = "Python repositories"
+CheckUpdatesCommand = "test -n \"$(pip-review -r --use-feature=2020-resolver)\""
+UpdateCommand = "pip-review -a --use-feature=2020-resolver"
+
+[[Source]]
+Name = "Ruby repositories"
+CheckUpdatesCommand = "test -n \"$(gem outdated)\""
+UpdateCommand = "gem update"
+
+[[Source]]
+Name = "NPM repositories"
+CheckUpdatesCommand = "yarn-check \"$(yarn global dir)\" | grep -q 'update available'"
+UpdateCommand = "yarn global upgrade"
+
+[[Source]]
+Name = "Rust toolchains"
+CheckUpdatesCommand = "rustup check | grep -vq 'Up to date'"
+UpdateCommand = "rustup update"
+
+[[Source]]
+Name = "Rust repositories"
+CheckUpdatesCommand = "cargo install-update -l | tail -n+4 | awk '{ print $4 }' | grep -q Yes"
+UpdateCommand = "cargo install-update -a"
