@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -44,13 +45,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	cmds := make([]*exec.Cmd, len(config.Source), len(config.Source))
+	for i, source := range config.Source {
+		cmd := exec.Command("sh", "-c", source.CheckUpdatesCommand)
+		if cmd.Start() != nil {
+			log.Printf("error: could not start command \"%s\"\n", source.CheckUpdatesCommand)
+		}
+
+		cmds[i] = cmd
+	}
+
 	hasUpdates := false
 	var notificationDescription strings.Builder
 	notificationDescription.WriteString(config.Notification.DescriptionHeader + "\n")
-	for _, source := range config.Source {
-		err := exec.Command("sh", "-c", source.CheckUpdatesCommand).Run()
-		if err == nil {
+	for i, cmd := range cmds {
+		if cmd != nil && cmd.Wait() == nil {
 			hasUpdates = true
+			source := config.Source[i]
 			source.HasUpdates = true
 			notificationDescription.WriteString(fmt.Sprintf(config.Notification.LineFormat+"\n", source.Name))
 		}
