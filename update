@@ -1,0 +1,130 @@
+#!/bin/bash
+
+while getopts :s opt; do
+	case $opt in
+		s)
+			SCRIPT_MODE=1
+			;;
+
+		*)
+			echo "error: invalid option -$opt" >&2
+			exit 1
+	esac
+done
+
+shift $((OPTIND-1))
+
+if [[ -n $SCRIPT_MODE ]]; then
+	notify-send 'Update notifier' 'System update started...'
+fi
+
+echo "Updating Arch Linux / AUR packages..."
+update_arch_packages='yay -Syu --noconfirm'
+if [[ -z $SCRIPT_MODE ]]; then
+	if ! eval "$update_arch_packages"; then
+		failed_update_invocations+=(arch)
+	fi
+	echo
+elif $update_arch_packages 2>&1 | grep -E 'warning: .+ (installed|saved) as .+\.(pacnew|pacsave)' > /dev/null 2>&1; then
+	if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+		failed_update_invocations+=(arch)
+	fi
+	has_pacnew_pacsave=1
+fi
+
+echo "Updating Python packages..."
+update_python_packages='pip-review -a'
+if [[ -n $SCRIPT_MODE ]]; then
+	update_python_packages+=' > /dev/null 2>&1'
+fi
+if ! eval "$update_python_packages"; then
+	failed_update_invocations+=("Python packages")
+fi
+if [[ -z $SCRIPT_MODE ]]; then
+	echo
+fi
+
+echo "Updating Ruby packages..."
+update_ruby_packages='gem update'
+if [[ -n $SCRIPT_MODE ]]; then
+	update_ruby_packages+=' > /dev/null 2>&1'
+fi
+if ! eval "$update_ruby_packages"; then
+	failed_update_invocations+=("Ruby packages")
+fi
+if [[ -z $SCRIPT_MODE ]]; then
+	echo
+fi
+
+echo "Updating Node.js packages..."
+update_node_js_packages='yarn global upgrade'
+if [[ -n $SCRIPT_MODE ]]; then
+	update_node_js_packages+=' > /dev/null 2>&1'
+fi
+if ! eval "$update_node_js_packages"; then
+	failed_update_invocations+=("Node.js packages")
+fi
+if [[ -z $SCRIPT_MODE ]]; then
+	echo
+fi
+
+if [[ $1 = -g ]]; then
+	echo "Updating Go packages..."
+	update_go_packages='go get -u all'
+	if [[ -n $SCRIPT_MODE ]]; then
+		update_go_packages+=' > /dev/null 2>&1'
+	fi
+	if ! eval "$update_go_packages"; then
+		failed_update_invocations+=("Go packages")
+	fi
+	if [[ -z $SCRIPT_MODE ]]; then
+		echo
+	fi
+fi
+
+echo "Updating Rust toolchains..."
+update_rust_toolchains='rustup update'
+if [[ -n $SCRIPT_MODE ]]; then
+	update_rust_toolchains+=' > /dev/null 2>&1'
+fi
+if ! eval "$update_rust_toolchains"; then
+	failed_update_invocations+=("Rust toolchains")
+fi
+if [[ -z $SCRIPT_MODE ]]; then
+	echo
+fi
+
+echo "Updating Rust packages..."
+update_rust_packages='cargo install-update -a'
+if [[ -n $SCRIPT_MODE ]]; then
+	update_rust_packages+=' > /dev/null 2>&1'
+fi
+if ! eval "$update_rust_packages"; then
+	failed_update_invocations+=("Rust packages")
+fi
+if [[ -z $SCRIPT_MODE ]]; then
+	echo
+fi
+
+if [[ ${#failed_update_invocations[*]} -eq 0 ]]; then
+	description='Finished updating the system.'
+	urgency='-u normal'
+else
+	description='System update failed!  Errors were encountered while updating packages from the following sources:'
+	for update_source in "${failed_update_invocations[@]}"; do
+		description=$"$description\n* $update_source"
+	done
+	urgency='-u critical'
+fi
+
+if [[ -n $has_pacnew_pacsave ]]; then
+	description=$"$description\nPlease check the .pacnew and .pacsave files which were created by pacman(8) for conflicts using the pacdiff(8) tool."
+	urgency='-u critical'
+fi
+
+if [[ -n $SCRIPT_MODE ]]; then
+	# shellcheck disable=SC2086
+	notify-send $urgency 'Update notifier' "$description"
+else
+	echo "$description"
+fi
